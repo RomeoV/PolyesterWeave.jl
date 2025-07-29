@@ -28,3 +28,4 @@ using Test
   end
 end
 Aqua.test_all(PolyesterWeave)
+include("test_high_thread_count.jl")
