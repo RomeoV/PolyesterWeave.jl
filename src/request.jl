@@ -1,11 +1,12 @@
 function worker_bits()
   wts = nextpow2(Threads.nthreads()) # Typically sys_threads (i.e. Sys.CPU_THREADS) does not change between runs, thus it will precompile well.
   ws = static(8sizeof(UInt))               # For testing purposes it can be overridden by JULIA_CPU_THREADS,
-  ifelse(Static.lt(wts, ws), ws, wts)
+  # Always return Int to avoid type instability with high thread counts
+  ifelse(wts < 64, 64, wts)
 end
 function worker_mask_count()
   bits = worker_bits()
-  (bits + StaticInt{63}()) ÷ StaticInt{64}() # cld not defined on `StaticInt`
+  cld(bits, 64)
 end
 
 worker_pointer() = Base.unsafe_convert(Ptr{UInt}, pointer_from_objref(WORKERS))
@@ -59,6 +60,30 @@ end
   ui, ft, num_requested, wp =
     __request_threads(num_requested, wp, _first(threadmask))
   (ui,), (ft,)
+end
+
+# Handle regular Int for type stability with high thread counts
+@inline function _request_threads(
+  num_requested::UInt32,
+  wp::Ptr,
+  N::Int,
+  threadmask
+)
+  if N == 1
+    ui, ft, num_requested, wp =
+      __request_threads(num_requested, wp, _first(threadmask))
+    return (ui,), (ft,)
+  else
+    ui, ft, num_requested, wp =
+      __request_threads(num_requested, wp, _first(threadmask))
+    uit, ftt = _request_threads(
+      num_requested,
+      wp,
+      N - 1,
+      _remaining(threadmask)
+    )
+    return (ui, uit...), (ft, ftt...)
+  end
 end
 
 @inline function _exchange_mask!(wp, ::Nothing)
