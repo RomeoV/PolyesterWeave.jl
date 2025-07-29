@@ -1,5 +1,6 @@
 using Test
 using PolyesterWeave
+using BitTwiddlingConvenienceFunctions: nextpow2
 
 @testset "High thread count compatibility" begin
     # Test worker_bits returns Int for all thread counts
@@ -29,5 +30,3 @@ using PolyesterWeave
     @test PolyesterWeave.worker_bits() == max(64, nextpow2(Threads.nthreads()))
     @test PolyesterWeave.worker_mask_count() == cld(PolyesterWeave.worker_bits(), 64)
 end
-
-println("All tests passed!")
